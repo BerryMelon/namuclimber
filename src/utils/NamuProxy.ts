@@ -7,34 +7,43 @@ export const fetchNamuPage = async (titleOrUrl: string): Promise<NamuPage> => {
   const isUrl = titleOrUrl.startsWith('http');
   const url = isUrl ? titleOrUrl : `https://namu.wiki/w/${encodeURIComponent(titleOrUrl)}`;
   
-  // Use AllOrigins proxy to bypass CORS
-  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+  // Using corsproxy.io as it often handles Cloudflare-protected sites better
+  const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
   
   try {
     const response = await fetch(proxyUrl);
-    if (!response.ok) throw new Error('Failed to fetch from proxy');
+    if (!response.ok) throw new Error(`Proxy returned status: ${response.status}`);
     
-    const data = await response.json();
-    const html = data.contents;
+    const html = await response.text();
     
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
     
     // Namuwiki's title is often in the <title> or <h1>
-    const title = doc.querySelector('h1')?.textContent || titleOrUrl;
+    const title = doc.querySelector('h1')?.textContent || doc.querySelector('title')?.textContent?.split(' - ')[0] || titleOrUrl;
     
-    // Namuwiki's content is usually in an article tag or a specific div
-    // We try to find the most relevant content block
-    const article = doc.querySelector('article') || doc.querySelector('.wiki-heading-content')?.parentElement;
+    // Namuwiki's content structure can vary, we target the main article body
+    // The most common class is 'wiki-article' or 'v-flex' containers
+    const article = doc.querySelector('article') || 
+                    doc.querySelector('.wiki-content') || 
+                    doc.querySelector('.wiki-inner-content');
     
-    if (!article) throw new Error('Could not find article content');
+    if (!article) {
+      console.warn('Could not find standard article tag, attempting fallback to body');
+      // If we can't find the article, we might have hit a CAPTCHA or a different layout
+      if (html.includes('cloudflare') || html.includes('captcha')) {
+        throw new Error('Namuwiki blocked the request (Cloudflare/Captcha)');
+      }
+    }
+
+    const finalArticle = article || doc.body;
 
     // Clean up unwanted elements
-    const elementsToRemove = article.querySelectorAll('script, style, iframe, .wiki-ads, .wiki-edit-section');
+    const elementsToRemove = finalArticle.querySelectorAll('script, style, iframe, .wiki-ads, .wiki-edit-section');
     elementsToRemove.forEach(el => el.remove());
 
     // Rewrite links
-    const links = article.querySelectorAll('a');
+    const links = finalArticle.querySelectorAll('a');
     links.forEach(link => {
       const href = link.getAttribute('href');
       if (href && (href.startsWith('/w/') || href.startsWith('https://namu.wiki/w/'))) {
@@ -56,7 +65,7 @@ export const fetchNamuPage = async (titleOrUrl: string): Promise<NamuPage> => {
 
     return {
       title,
-      content: article.innerHTML
+      content: finalArticle.innerHTML
     };
   } catch (error) {
     console.error('Error fetching Namuwiki page:', error);
