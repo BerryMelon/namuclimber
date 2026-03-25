@@ -14,4 +14,4 @@ A Wikipedia speedrun game where you navigate through links to reach a target pag
 - Wikipedia API
 
 ## Deployment
-Hosted on GitHub Pages at [https://berrymelon.github.io/namuclimber/](https://berrymelon.github.io/namuclimber/)
+Hosted on GitHub Pages at [https://berrymelon.github.io/wikiclimber/](https://berrymelon.github.io/wikiclimber/)
