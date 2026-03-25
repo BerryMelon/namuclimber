@@ -181,10 +181,15 @@ export default function WikiClimber() {
   };
 
   const handleBrowserClick = (e: React.MouseEvent) => {
+    // Prevent default browser navigation
     const target = e.target as HTMLElement;
     const link = target.closest('a');
+    
     if (link) {
+      e.preventDefault();
       const page = link.getAttribute('data-page');
+      console.log('[WikiClimber] Clicked link:', link.textContent, 'Page:', page);
+      
       if (page) {
         navigateTo(page);
       }
