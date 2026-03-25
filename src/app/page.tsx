@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { fetchNamuPage, getRandomNamuPage } from '@/utils/NamuProxy';
+import { fetchNamuPage, getRandomNamuPage, FALLBACK_WORDS } from '@/utils/NamuProxy';
 import { supabase } from '@/utils/supabase';
 
 type GameStatus = 'idle' | 'countdown' | 'playing' | 'congrats' | 'failed';
@@ -93,15 +93,22 @@ export default function NamuClimber() {
   const startCountdown = async () => {
     setLoading(true);
     try {
-      // 1. Prepare start page
+      // 1. Pick target word locally (INSTANT)
+      let targetTitle = FALLBACK_WORDS[Math.floor(Math.random() * FALLBACK_WORDS.length)];
+      setTargetWord(targetTitle);
+
+      // 2. Prepare start page from Namuwiki
       const start = await getRandomNamuPage();
+      
+      // Ensure start and target are different
+      if (start.title === targetTitle) {
+        targetTitle = FALLBACK_WORDS[(FALLBACK_WORDS.indexOf(targetTitle) + 1) % FALLBACK_WORDS.length];
+        setTargetWord(targetTitle);
+      }
+
       setCurrentWord(start.title);
       setHtmlContent(start.content);
       setHistory([start.title]);
-
-      // 2. Pick target word (excluding the start page title)
-      const target = await getRandomNamuPage(start.title);
-      setTargetWord(target.title);
       
       setTimer(0);
       setCountdown(3);
