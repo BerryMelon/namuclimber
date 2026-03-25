@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { fetchWikiPage, getRandomWikiPage, FALLBACK_WORDS } from '@/utils/WikiProxy';
 import { supabase } from '@/utils/supabase';
 
@@ -14,6 +14,39 @@ interface RankingEntry {
   path: string[];
   created_at: string;
 }
+
+// Separate Timer component to prevent main component re-renders
+const TimerDisplay = memo(({ status, initialTime, onTick }: { status: GameStatus, initialTime: number, onTick: (time: number) => void }) => {
+  const [displayTime, setDisplayTime] = useState(initialTime);
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+    if (status === 'playing') {
+      const startTime = Date.now() - initialTime;
+      interval = setInterval(() => {
+        const now = Date.now() - startTime;
+        setDisplayTime(now);
+        onTick(now);
+      }, 50); // High frequency for smooth display, but restricted to this component
+    } else if (status === 'idle') {
+      setDisplayTime(0);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [status, initialTime, onTick]);
+
+  const formatTime = (ms: number) => {
+    const min = Math.floor(ms / 60000);
+    const sec = Math.floor((ms % 60000) / 1000);
+    const milli = Math.floor((ms % 1000) / 10);
+    return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}.${milli.toString().padStart(2, '0')}`;
+  };
+
+  return <div className="text-2xl font-mono font-bold w-32 text-center text-blue-600">{formatTime(displayTime)}</div>;
+});
+
+TimerDisplay.displayName = 'TimerDisplay';
 
 export default function WikiClimber() {
   const [status, setStatus] = useState<GameStatus>('idle');
@@ -50,21 +83,11 @@ export default function WikiClimber() {
   };
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
     if (status === 'playing') {
-      const startTime = Date.now() - timer;
-      interval = setInterval(() => {
-        setTimer(Date.now() - startTime);
-      }, 100);
-    }
-    return () => {
-      if (interval) clearInterval(interval as NodeJS.Timeout);
-    };
-  }, [status]);
-
-  useEffect(() => {
-    if (status === 'playing') {
-      const handleKeyDown = () => handleFail('Keyboard input detected!');
+      const handleKeyDown = (e: KeyboardEvent) => {
+        // Allow some functional keys if necessary, but generally block
+        handleFail('Keyboard input detected!');
+      };
       const handleVisibilityChange = () => {
         if (document.hidden) handleFail('Focus loss detected!');
       };
@@ -87,11 +110,9 @@ export default function WikiClimber() {
   const startCountdown = async () => {
     setLoading(true);
     try {
-      // 1. Pick target word locally (Instant)
       let targetTitle = FALLBACK_WORDS[Math.floor(Math.random() * FALLBACK_WORDS.length)];
       setTargetWord(targetTitle);
 
-      // 2. Prepare start page from Wikipedia
       const start = await getRandomWikiPage();
       
       if (start.title === targetTitle) {
@@ -129,8 +150,6 @@ export default function WikiClimber() {
     try {
       const page = await fetchWikiPage(pageTitle);
       
-      // Wikipedia uses bold or slightly different strings for titles sometimes, 
-      // we check for exact match or includes
       const cleanTarget = targetWord.replace(/<\/?[^>]+(>|$)/g, "").trim();
       const cleanCurrent = page.title.replace(/<\/?[^>]+(>|$)/g, "").trim();
 
@@ -172,15 +191,7 @@ export default function WikiClimber() {
     }
   };
 
-  const formatTime = (ms: number) => {
-    const min = Math.floor(ms / 60000);
-    const sec = Math.floor((ms % 60000) / 1000);
-    const milli = Math.floor((ms % 1000) / 10);
-    return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}.${milli.toString().padStart(2, '0')}`;
-  };
-
   const handleBrowserClick = (e: React.MouseEvent) => {
-    // Prevent default browser navigation
     const target = e.target as HTMLElement;
     const link = target.closest('a');
     
@@ -188,12 +199,17 @@ export default function WikiClimber() {
       e.preventDefault();
       e.stopPropagation();
       const page = link.getAttribute('data-page');
-      console.log('[WikiClimber] Clicked link:', link.textContent, 'Page:', page);
-      
       if (page) {
         navigateTo(page);
       }
     }
+  };
+
+  const formatTime = (ms: number) => {
+    const min = Math.floor(ms / 60000);
+    const sec = Math.floor((ms % 60000) / 1000);
+    const milli = Math.floor((ms % 1000) / 10);
+    return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}.${milli.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -218,9 +234,7 @@ export default function WikiClimber() {
         </div>
 
         <div className="flex items-center gap-6">
-          <div className="text-2xl font-mono font-bold w-32 text-center text-blue-600">
-            {formatTime(timer)}
-          </div>
+          <TimerDisplay status={status} initialTime={timer} onTick={setTimer} />
           <button onClick={() => setShowRanking(!showRanking)} className="text-gray-400 hover:text-blue-600">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -230,7 +244,7 @@ export default function WikiClimber() {
       </header>
 
       <div className="flex flex-1 overflow-hidden relative">
-        <main className="flex-1 overflow-auto p-12 max-w-4xl mx-auto border-x border-gray-50" ref={browserRef}>
+        <main className="flex-1 overflow-auto p-12 pt-6 max-w-4xl mx-auto border-x border-gray-50" ref={browserRef}>
           {status === 'idle' ? (
             <div className="h-full flex flex-col items-center justify-center text-center">
               <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
@@ -249,11 +263,19 @@ export default function WikiClimber() {
               </div>
             </div>
           ) : (
-            <div 
-              className={`prose prose-blue max-w-none wiki-content transition-opacity duration-300 ${loading ? 'opacity-30' : 'opacity-100'}`} 
-              onClick={handleBrowserClick}
-              dangerouslySetInnerHTML={{ __html: htmlContent }}
-            />
+            <div className="space-y-6">
+              {status === 'playing' && (
+                <div className="border-b pb-4 mb-6">
+                  <span className="text-xs font-bold text-blue-500 uppercase tracking-tight">Current Page</span>
+                  <h2 className="text-3xl font-serif font-bold" dangerouslySetInnerHTML={{ __html: currentWord }} />
+                </div>
+              )}
+              <div 
+                className={`prose prose-blue max-w-none wiki-content transition-opacity duration-300 ${loading ? 'opacity-30' : 'opacity-100'}`} 
+                onClick={handleBrowserClick}
+                dangerouslySetInnerHTML={{ __html: htmlContent }}
+              />
+            </div>
           )}
         </main>
 
@@ -326,7 +348,7 @@ export default function WikiClimber() {
         .wiki-content th, .wiki-content td { border: 1px solid #e5e7eb; padding: 0.5rem; }
         .wiki-content .thumb { border: 1px solid #e5e7eb; padding: 0.5rem; margin: 1rem 0; background: #f9fafb; text-align: center; }
         .wiki-content .thumbcaption { font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem; }
-        .wiki-content .infobox { display: none; }
+        .wiki-content .infobox, .wiki-content .ambox, .wiki-content .navbox { display: none; }
       `}</style>
     </div>
   );
