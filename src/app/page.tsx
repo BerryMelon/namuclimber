@@ -38,6 +38,7 @@ export default function NamuClimber() {
   }, []);
 
   const fetchRankings = async () => {
+    if (!supabase) return;
     try {
       const { data, error } = await supabase
         .from('rankings')
@@ -146,6 +147,7 @@ export default function NamuClimber() {
 
   const submitScore = async () => {
     if (!playerName) return alert('Please enter your name');
+    if (!supabase) return alert('Supabase is not configured. (Check GitHub Secrets)');
     try {
       const { error } = await supabase.from('rankings').insert([
         {
@@ -162,7 +164,7 @@ export default function NamuClimber() {
       setHistory([]);
       setHtmlContent('');
     } catch (err) {
-      alert('Failed to submit score. (Supabase not configured?)');
+      alert('Failed to submit score.');
     }
   };
 
