@@ -6,15 +6,15 @@ export interface WikiPage {
 const WIKI_API_URL = 'https://ko.wikipedia.org/w/api.php';
 
 export const fetchWikiPage = async (title: string): Promise<WikiPage> => {
-  // 1. Fetch the page content from Wikipedia API
+  console.log(`[WikiProxy] Fetching: ${title}`);
+  
   const params = new URLSearchParams({
     action: 'parse',
     page: title,
     format: 'json',
-    origin: '*', // Required for CORS
+    origin: '*',
     prop: 'text|displaytitle',
-    disableeditsection: 'true',
-    mobileformat: 'true'
+    disableeditsection: 'true'
   });
 
   try {
@@ -31,30 +31,41 @@ export const fetchWikiPage = async (title: string): Promise<WikiPage> => {
     const doc = parser.parseFromString(rawHtml, 'text/html');
     const container = doc.body;
 
-    // Clean up unwanted Wikipedia elements (references, edit links, etc.)
-    const toRemove = container.querySelectorAll('.mw-editsection, .reference, .reflist, .navbox, .infobox, .sidenote, .metadata');
+    // Clean up
+    const toRemove = container.querySelectorAll('.mw-editsection, .reference, .reflist, .navbox, .infobox, .sidenote, .metadata, .mw-empty-elt');
     toRemove.forEach(el => el.remove());
 
     // Rewrite internal Wikipedia links
     const links = container.querySelectorAll('a');
     links.forEach(link => {
       const href = link.getAttribute('href');
-      // Wikipedia internal links look like /wiki/Page_Name
-      if (href && href.startsWith('/wiki/') && !href.includes(':')) {
-        const pageName = href.replace('/wiki/', '');
-        link.setAttribute('href', '#');
-        link.setAttribute('data-page', decodeURIComponent(pageName).replace(/_/g, ' '));
-        link.style.color = '#3b82f6';
-        link.style.textDecoration = 'underline';
+      
+      // Robust check for Wikipedia internal links
+      // Matches /wiki/Page, ./Page, or full URL
+      if (href && (href.includes('/wiki/') || href.startsWith('./')) && !href.includes(':')) {
+        let pageName = '';
+        if (href.startsWith('./')) {
+          pageName = href.replace('./', '');
+        } else {
+          const parts = href.split('/wiki/');
+          pageName = parts[parts.length - 1].split('#')[0];
+        }
+
+        if (pageName) {
+          link.setAttribute('href', '#');
+          link.setAttribute('data-page', decodeURIComponent(pageName).replace(/_/g, ' '));
+          link.style.color = '#3b82f6';
+          link.style.textDecoration = 'underline';
+          link.style.cursor = 'pointer';
+        }
       } else if (href && !href.startsWith('#')) {
-        // Disable external links
         link.onclick = (e) => e.preventDefault();
         link.style.opacity = '0.5';
         link.style.cursor = 'not-allowed';
       }
     });
 
-    // Fix image paths (Wikipedia uses relative protocol //upload...)
+    // Fix images
     const images = container.querySelectorAll('img');
     images.forEach(img => {
       let src = img.getAttribute('src');
@@ -76,7 +87,6 @@ export const fetchWikiPage = async (title: string): Promise<WikiPage> => {
 };
 
 export const getRandomWikiPage = async (): Promise<WikiPage> => {
-  // Fetch a random page title first
   const params = new URLSearchParams({
     action: 'query',
     list: 'random',
