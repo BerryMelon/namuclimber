@@ -28,7 +28,6 @@ export default function WikiClimber() {
   const [playerName, setPlayerName] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
 
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
   const browserRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -51,16 +50,15 @@ export default function WikiClimber() {
   };
 
   useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
     if (status === 'playing') {
-      const start = Date.now() - timer;
-      timerRef.current = setInterval(() => {
-        setTimer(Date.now() - start);
-      }, 10);
-    } else {
-      if (timerRef.current) clearInterval(timerRef.current);
+      const startTime = Date.now() - timer;
+      interval = setInterval(() => {
+        setTimer(Date.now() - startTime);
+      }, 100);
     }
     return () => {
-      if (timerRef.current) clearInterval(timerRef.current);
+      if (interval) clearInterval(interval as NodeJS.Timeout);
     };
   }, [status]);
 
@@ -187,6 +185,7 @@ export default function WikiClimber() {
     
     if (link) {
       e.preventDefault();
+      e.stopPropagation();
       const page = link.getAttribute('data-page');
       console.log('[WikiClimber] Clicked link:', link.textContent, 'Page:', page);
       
