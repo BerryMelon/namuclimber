@@ -15,26 +15,31 @@ interface RankingEntry {
   created_at: string;
 }
 
-// Separate Timer component to prevent main component re-renders
-const TimerDisplay = memo(({ status, initialTime, onTick }: { status: GameStatus, initialTime: number, onTick: (time: number) => void }) => {
-  const [displayTime, setDisplayTime] = useState(initialTime);
+// Separate Timer component that is COMPLETELY isolated
+const TimerDisplay = memo(({ status, onFinish }: { status: GameStatus, onFinish?: (finalTime: number) => void }) => {
+  const [displayTime, setDisplayTime] = useState(0);
+  const timeRef = useRef(0);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (status === 'playing') {
-      const startTime = Date.now() - initialTime;
+      const startTime = Date.now();
       interval = setInterval(() => {
         const now = Date.now() - startTime;
+        timeRef.current = now;
         setDisplayTime(now);
-        onTick(now);
-      }, 50); // High frequency for smooth display, but restricted to this component
-    } else if (status === 'idle') {
-      setDisplayTime(0);
+      }, 50);
+    } else if (status === 'congrats' || status === 'failed' || status === 'idle') {
+      if (onFinish && status !== 'idle') onFinish(timeRef.current);
+      if (status === 'idle') {
+        timeRef.current = 0;
+        setDisplayTime(0);
+      }
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [status, initialTime, onTick]);
+  }, [status, onFinish]);
 
   const formatTime = (ms: number) => {
     const min = Math.floor(ms / 60000);
@@ -54,7 +59,7 @@ export default function WikiClimber() {
   const [currentWord, setCurrentWord] = useState<string>('');
   const [htmlContent, setHtmlContent] = useState<string>('');
   const [history, setHistory] = useState<string[]>([]);
-  const [timer, setTimer] = useState<number>(0);
+  const [finalTime, setFinalTime] = useState<number>(0);
   const [countdown, setCountdown] = useState<number>(3);
   const [showRanking, setShowRanking] = useState<boolean>(false);
   const [rankings, setRankings] = useState<RankingEntry[]>([]);
@@ -84,17 +89,12 @@ export default function WikiClimber() {
 
   useEffect(() => {
     if (status === 'playing') {
-      const handleKeyDown = (e: KeyboardEvent) => {
-        // Allow some functional keys if necessary, but generally block
-        handleFail('Keyboard input detected!');
-      };
+      const handleKeyDown = () => handleFail('Keyboard input detected!');
       const handleVisibilityChange = () => {
         if (document.hidden) handleFail('Focus loss detected!');
       };
-
       window.addEventListener('keydown', handleKeyDown);
       document.addEventListener('visibilitychange', handleVisibilityChange);
-
       return () => {
         window.removeEventListener('keydown', handleKeyDown);
         document.removeEventListener('visibilitychange', handleVisibilityChange);
@@ -114,7 +114,6 @@ export default function WikiClimber() {
       setTargetWord(targetTitle);
 
       const start = await getRandomWikiPage();
-      
       if (start.title === targetTitle) {
         targetTitle = FALLBACK_WORDS[(FALLBACK_WORDS.indexOf(targetTitle) + 1) % FALLBACK_WORDS.length];
         setTargetWord(targetTitle);
@@ -123,13 +122,12 @@ export default function WikiClimber() {
       setCurrentWord(start.title);
       setHtmlContent(start.content);
       setHistory([start.title]);
-      
-      setTimer(0);
+      setFinalTime(0);
       setCountdown(3);
       setStatus('countdown');
       setLoading(false);
     } catch (err) {
-      alert('Failed to initialize game. Check your connection.');
+      alert('Failed to initialize game.');
       setLoading(false);
     }
   };
@@ -145,11 +143,9 @@ export default function WikiClimber() {
 
   const navigateTo = async (pageTitle: string) => {
     if (status !== 'playing' || loading) return;
-    
     setLoading(true);
     try {
       const page = await fetchWikiPage(pageTitle);
-      
       const cleanTarget = targetWord.replace(/<\/?[^>]+(>|$)/g, "").trim();
       const cleanCurrent = page.title.replace(/<\/?[^>]+(>|$)/g, "").trim();
 
@@ -168,6 +164,17 @@ export default function WikiClimber() {
     }
   };
 
+  const handleBrowserClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    const link = target.closest('a');
+    if (link) {
+      e.preventDefault();
+      e.stopPropagation();
+      const page = link.getAttribute('data-page');
+      if (page) navigateTo(page);
+    }
+  };
+
   const submitScore = async () => {
     if (!playerName) return alert('Please enter your name');
     if (!supabase) return alert('Supabase is not configured.');
@@ -176,7 +183,7 @@ export default function WikiClimber() {
         {
           player_name: playerName,
           target_word: targetWord.replace(/<\/?[^>]+(>|$)/g, "").trim(),
-          time_ms: timer,
+          time_ms: finalTime,
           path: history
         }
       ]);
@@ -184,24 +191,8 @@ export default function WikiClimber() {
       alert('Score submitted!');
       fetchRankings();
       setStatus('idle');
-      setHistory([]);
-      setHtmlContent('');
     } catch (err) {
       alert('Failed to submit score.');
-    }
-  };
-
-  const handleBrowserClick = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    const link = target.closest('a');
-    
-    if (link) {
-      e.preventDefault();
-      e.stopPropagation();
-      const page = link.getAttribute('data-page');
-      if (page) {
-        navigateTo(page);
-      }
     }
   };
 
@@ -213,7 +204,7 @@ export default function WikiClimber() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-white text-gray-900 font-sans">
+    <div className="flex flex-col h-screen bg-white text-gray-900 font-sans selection:bg-blue-100">
       <header className="bg-white border-b p-4 flex items-center justify-between sticky top-0 z-10">
         <div className="flex items-center gap-4">
           <h1 className="text-xl font-serif font-bold italic">WikiClimber</h1>
@@ -234,7 +225,7 @@ export default function WikiClimber() {
         </div>
 
         <div className="flex items-center gap-6">
-          <TimerDisplay status={status} initialTime={timer} onTick={setTimer} />
+          <TimerDisplay status={status} onFinish={setFinalTime} />
           <button onClick={() => setShowRanking(!showRanking)} className="text-gray-400 hover:text-blue-600">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -251,13 +242,11 @@ export default function WikiClimber() {
                 <span className="text-4xl">📚</span>
               </div>
               <h2 className="text-2xl font-serif font-bold mb-2">Welcome to WikiClimber</h2>
-              <p className="text-gray-500 max-w-md mb-8">Navigate through Wikipedia links to reach the target page as fast as you can. No keyboard allowed!</p>
+              <p className="text-gray-500 max-w-md mb-8">Navigate through Wikipedia links to reach the target page. No keyboard allowed!</p>
               <div className="bg-gray-50 p-6 rounded-lg text-left text-sm text-gray-600 border border-dashed border-gray-300">
                 <p className="font-bold mb-2">Rules:</p>
                 <ul className="list-disc ml-5 space-y-1">
                   <li>Mouse clicks only.</li>
-                  <li>No keyboard inputs (instant fail).</li>
-                  <li>No tab switching.</li>
                   <li>Reach the target title to win.</li>
                 </ul>
               </div>
@@ -271,7 +260,7 @@ export default function WikiClimber() {
                 </div>
               )}
               <div 
-                className={`prose prose-blue max-w-none wiki-content transition-opacity duration-300 ${loading ? 'opacity-30' : 'opacity-100'}`} 
+                className={`prose prose-blue max-w-none wiki-content transition-opacity duration-300 ${loading ? 'opacity-30 pointer-events-none' : 'opacity-100 pointer-events-auto'}`} 
                 onClick={handleBrowserClick}
                 dangerouslySetInnerHTML={{ __html: htmlContent }}
               />
@@ -281,23 +270,17 @@ export default function WikiClimber() {
 
         <aside className={`w-80 bg-gray-50 border-l fixed right-0 top-[73px] bottom-0 transition-transform duration-300 z-20 ${showRanking ? 'translate-x-0' : 'translate-x-full'}`}>
           <div className="p-4 border-b flex justify-between items-center bg-white">
-            <h2 className="font-bold">Global Rankings</h2>
+            <h2 className="font-bold">Rankings</h2>
             <button onClick={() => setShowRanking(false)} className="text-2xl">&times;</button>
           </div>
           <div className="overflow-auto h-full p-4 space-y-3 pb-24">
             {rankings.map((entry, idx) => (
               <div key={entry.id} className="bg-white border rounded p-3 shadow-sm">
-                <div className="flex justify-between items-center mb-1">
+                <div className="flex justify-between items-center">
                   <span className="font-bold text-blue-600">#{idx + 1} {entry.player_name}</span>
                   <span className="text-xs font-mono bg-blue-50 text-blue-700 px-1 rounded">{formatTime(entry.time_ms)}</span>
                 </div>
-                <div className="text-[10px] text-gray-400 uppercase font-bold truncate">Target: {entry.target_word}</div>
-                <button 
-                  onClick={() => alert(`Path: ${entry.path.join(' → ')}`)}
-                  className="mt-2 text-[10px] text-gray-400 hover:text-blue-600 underline"
-                >
-                  VIEW PROGRESS
-                </button>
+                <div className="text-[10px] text-gray-400 font-bold truncate mt-1">Target: {entry.target_word}</div>
               </div>
             ))}
           </div>
@@ -308,17 +291,12 @@ export default function WikiClimber() {
             <div className="p-10 max-w-lg w-full text-center">
               <span className="text-6xl mb-4 block">🏆</span>
               <h2 className="text-4xl font-serif font-bold text-blue-600 mb-2">Success!</h2>
-              <p className="text-xl mb-6">You reached <span className="font-bold">[{targetWord}]</span> in {formatTime(timer)}</p>
+              <p className="text-xl mb-6">You reached <span className="font-bold">[{targetWord}]</span> in {formatTime(finalTime)}</p>
               
               <div className="bg-gray-50 border rounded-lg p-4 text-left mb-8 max-h-48 overflow-auto">
                 <p className="text-[10px] text-gray-400 font-bold uppercase mb-2">Your Path</p>
-                <div className="flex flex-wrap gap-2 text-sm">
-                  {history.map((h, i) => (
-                    <span key={i} className="flex items-center gap-2">
-                      {i > 0 && <span className="text-gray-300">→</span>}
-                      <span className="bg-white px-2 py-1 rounded border shadow-sm">{h}</span>
-                    </span>
-                  ))}
+                <div className="flex flex-wrap gap-2 text-sm text-gray-600">
+                  {history.join(' → ')}
                 </div>
               </div>
 
@@ -340,15 +318,15 @@ export default function WikiClimber() {
       </div>
 
       <style jsx global>{`
-        .wiki-content { font-family: sans-serif; }
+        .wiki-content { font-family: sans-serif; cursor: default; }
+        .wiki-content a { cursor: pointer !important; pointer-events: auto !important; position: relative; z-index: 1; }
         .wiki-content h2 { border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; margin-top: 2rem; margin-bottom: 1rem; font-size: 1.5rem; font-weight: bold; }
         .wiki-content p { margin-bottom: 1.25rem; line-height: 1.8; color: #374151; }
         .wiki-content ul { list-style: disc; margin-left: 1.5rem; margin-bottom: 1.25rem; }
         .wiki-content table { border: 1px solid #e5e7eb; margin-bottom: 1.5rem; width: 100%; border-collapse: collapse; font-size: 0.875rem; }
         .wiki-content th, .wiki-content td { border: 1px solid #e5e7eb; padding: 0.5rem; }
         .wiki-content .thumb { border: 1px solid #e5e7eb; padding: 0.5rem; margin: 1rem 0; background: #f9fafb; text-align: center; }
-        .wiki-content .thumbcaption { font-size: 0.75rem; color: #6b7280; margin-top: 0.5rem; }
-        .wiki-content .infobox, .wiki-content .ambox, .wiki-content .navbox { display: none; }
+        .wiki-content .infobox, .wiki-content .ambox, .wiki-content .navbox, .wiki-content .vertical-navbox { display: none !important; }
       `}</style>
     </div>
   );
