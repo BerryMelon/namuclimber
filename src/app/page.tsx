@@ -128,15 +128,16 @@ export default function WikiClimber() {
     setLoading(true);
     try {
       const page = await fetchWikiPage(pageTitle);
-      setCurrentWord(page.title);
-      setHtmlContent(page.content);
-      setHistory(prev => [...prev, page.title]);
       
       // Wikipedia uses bold or slightly different strings for titles sometimes, 
       // we check for exact match or includes
       const cleanTarget = targetWord.replace(/<\/?[^>]+(>|$)/g, "").trim();
       const cleanCurrent = page.title.replace(/<\/?[^>]+(>|$)/g, "").trim();
 
+      setCurrentWord(page.title);
+      setHtmlContent(page.content);
+      setHistory(prev => [...prev, page.title]);
+      
       if (cleanCurrent === cleanTarget) {
         setStatus('congrats');
       }
@@ -155,7 +156,7 @@ export default function WikiClimber() {
       const { error } = await supabase.from('rankings').insert([
         {
           player_name: playerName,
-          target_word: targetWord,
+          target_word: targetWord.replace(/<\/?[^>]+(>|$)/g, "").trim(),
           time_ms: timer,
           path: history
         }

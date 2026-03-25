@@ -25,7 +25,11 @@ export const fetchWikiPage = async (title: string): Promise<WikiPage> => {
     if (data.error) throw new Error(data.error.info);
 
     const rawHtml = data.parse.text['*'];
-    const displayTitle = data.parse.displaytitle;
+    
+    // Clean up title (remove HTML tags like <span class="mw-page-title-main">)
+    const titleParser = new DOMParser();
+    const titleDoc = titleParser.parseFromString(data.parse.displaytitle, 'text/html');
+    const displayTitle = titleDoc.body.textContent || data.parse.displaytitle;
 
     const parser = new DOMParser();
     const doc = parser.parseFromString(rawHtml, 'text/html');
