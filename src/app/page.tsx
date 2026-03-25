@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, memo } from 'react';
-import { fetchWikiPage, getRandomWikiPage, FALLBACK_WORDS } from '@/utils/WikiProxy';
+import { fetchWikiPage, getRandomWikiPage } from '@/utils/WikiProxy';
 import { supabase } from '@/utils/supabase';
 
 type GameStatus = 'idle' | 'countdown' | 'playing' | 'congrats' | 'failed';
@@ -110,24 +110,28 @@ export default function WikiClimber() {
   const startCountdown = async () => {
     setLoading(true);
     try {
-      let targetTitle = FALLBACK_WORDS[Math.floor(Math.random() * FALLBACK_WORDS.length)];
-      setTargetWord(targetTitle);
-
+      // 1. Fetch Target Word (REAL Network Call)
+      const target = await getRandomWikiPage();
+      
+      // 2. Fetch Start Page (REAL Network Call)
       const start = await getRandomWikiPage();
-      if (start.title === targetTitle) {
-        targetTitle = FALLBACK_WORDS[(FALLBACK_WORDS.indexOf(targetTitle) + 1) % FALLBACK_WORDS.length];
-        setTargetWord(targetTitle);
+      
+      // Safety check: ensure they aren't the same
+      if (start.title === target.title) {
+        return startCountdown(); // Retry once
       }
 
+      setTargetWord(target.title);
       setCurrentWord(start.title);
       setHtmlContent(start.content);
       setHistory([start.title]);
+      
       setFinalTime(0);
       setCountdown(3);
       setStatus('countdown');
       setLoading(false);
     } catch (err) {
-      alert('Failed to initialize game.');
+      alert('Failed to initialize game. Please try again.');
       setLoading(false);
     }
   };

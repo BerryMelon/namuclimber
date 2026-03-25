@@ -107,8 +107,4 @@ export const getRandomWikiPage = async (): Promise<WikiPage> => {
   return fetchWikiPage(randomTitle);
 };
 
-export const FALLBACK_WORDS = [
-  '대한민국', '서울', '컴퓨터', '애플', '삼성전자', '유튜브', '구글', '축구', '야구', 
-  '우주', '과학', '역사', '철학', '음악', '손흥민', '방탄소년단', '김구', '세종대왕',
-  '이순신', '제주도', '한라산', '한강', '경복궁', '김치', '비빔밥', '불고기'
-];
+
