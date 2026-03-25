@@ -93,15 +93,15 @@ export default function NamuClimber() {
   const startCountdown = async () => {
     setLoading(true);
     try {
-      // 1. Pick target word
-      const target = await getRandomNamuPage();
-      setTargetWord(target.title);
-
-      // 2. Prepare start page
+      // 1. Prepare start page
       const start = await getRandomNamuPage();
       setCurrentWord(start.title);
       setHtmlContent(start.content);
       setHistory([start.title]);
+
+      // 2. Pick target word (excluding the start page title)
+      const target = await getRandomNamuPage(start.title);
+      setTargetWord(target.title);
       
       setTimer(0);
       setCountdown(3);
@@ -312,6 +312,8 @@ export default function NamuClimber() {
         .wiki-content {
           font-family: sans-serif;
           line-height: 1.6;
+          overflow-x: hidden;
+          width: 100%;
         }
         .wiki-content h1, .wiki-content h2, .wiki-content h3 {
           font-weight: bold;
@@ -325,9 +327,29 @@ export default function NamuClimber() {
         .wiki-content h3 { font-size: 1.25rem; }
         .wiki-content p { margin-bottom: 1rem; }
         .wiki-content ul { list-style-type: disc; margin-left: 1.5rem; margin-bottom: 1rem; }
-        .wiki-content table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+        .wiki-content table { 
+          width: 100% !important; 
+          table-layout: fixed;
+          border-collapse: collapse; 
+          margin-bottom: 1rem; 
+          display: block;
+          overflow-x: auto;
+        }
         .wiki-content th, .wiki-content td { border: 1px solid #ddd; padding: 0.5rem; }
-        .wiki-content .wiki-paragraph { margin-bottom: 1rem; }
+        .wiki-content img, .wiki-content svg {
+          max-width: 100% !important;
+          height: auto !important;
+          display: inline-block;
+        }
+        /* Fix for huge icons */
+        .wiki-content [width] {
+          width: auto;
+          max-width: 100%;
+        }
+        /* Specific Namuwiki table fixes */
+        .wiki-table {
+          width: 100% !important;
+        }
       `}</style>
     </div>
   );
