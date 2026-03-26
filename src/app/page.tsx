@@ -122,7 +122,7 @@ const TimerDisplay = memo(({ status, onFinish }: { status: GameStatus, onFinish?
     return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}.${milli.toString().padStart(2, '0')}`;
   };
 
-  return <div className="text-lg md:text-2xl font-mono font-bold w-20 md:w-32 text-center text-blue-600 shrink-0">{formatTime(displayTime)}</div>;
+  return <div className="text-lg md:text-2xl font-mono font-bold w-20 md:w-32 text-center text-blue-600 shrink-0 leading-none">{formatTime(displayTime)}</div>;
 });
 
 TimerDisplay.displayName = 'TimerDisplay';
@@ -150,7 +150,7 @@ export default function WikiClimber() {
 
   // Detect browser language
   useEffect(() => {
-    const browserLang = navigator.language || (navigator as any).userLanguage;
+    const browserLang = typeof navigator !== 'undefined' ? (navigator.language || (navigator as any).userLanguage) : 'ko';
     if (browserLang.startsWith('ko')) {
       setLanguage('ko');
     } else {
@@ -329,24 +329,25 @@ export default function WikiClimber() {
               {t.stop}
             </button>
           ) : (
-            <div className="w-8 sm:w-0" /> /* Spacer for alignment when no stop button */
+            <div className="w-0 sm:w-0" />
           )}
         </div>
 
-        <div className="flex flex-col items-center min-w-0 flex-1 px-2 relative">
-          <span className="text-[8px] md:text-[10px] text-gray-400 font-bold uppercase tracking-widest">{t.target}</span>
-          <div className="flex items-center justify-center max-w-full relative">
-            <span className="text-sm md:text-lg font-bold truncate" dangerouslySetInnerHTML={{ __html: status === 'idle' ? '???' : targetWord }} />
+        <div className="flex flex-col items-start sm:items-center min-w-0 flex-1 px-2 relative h-full">
+          <span className="text-[8px] md:text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none mb-1">{t.target}</span>
+          <div className="flex items-center justify-start sm:justify-center max-w-full relative">
+            <span className="text-lg md:text-xl font-bold truncate leading-none" dangerouslySetInnerHTML={{ __html: status === 'idle' ? '???' : targetWord }} />
             {status !== 'idle' && (
               <div className="absolute left-full ml-1" ref={tooltipRef}>
                 <button 
                   onClick={() => setShowTooltip(!showTooltip)}
-                  className="p-1 focus:outline-none"
+                  className="p-1 focus:outline-none flex items-center"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-colors ${showTooltip ? 'text-blue-600' : 'text-gray-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </button>
+                {/* Tooltip */}
                 <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 w-48 md:w-64 p-2 md:p-3 bg-gray-900 text-white text-[10px] md:text-xs rounded shadow-xl transition-all z-50 font-normal normal-case leading-relaxed pointer-events-none ${showTooltip ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
                   {targetSummary || '...'}
                   <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
@@ -356,9 +357,9 @@ export default function WikiClimber() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-6 shrink-0">
+        <div className="flex items-end sm:items-center gap-4 md:gap-6 shrink-0 h-full pt-2 sm:pt-0">
           <TimerDisplay status={status} onFinish={setFinalTime} />
-          <button onClick={() => setShowRanking(!showRanking)} className="text-gray-400 hover:text-blue-600">
+          <button onClick={() => setShowRanking(!showRanking)} className="text-gray-400 hover:text-blue-600 mb-0.5 sm:mb-0">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
             </svg>
