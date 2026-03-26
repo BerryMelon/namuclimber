@@ -148,6 +148,17 @@ export default function WikiClimber() {
   const browserRef = useRef<HTMLDivElement>(null);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
+  // Detect browser language
+  useEffect(() => {
+    const browserLang = navigator.language || (navigator as any).userLanguage;
+    if (browserLang.startsWith('ko')) {
+      setLanguage('ko');
+    } else {
+      setLanguage('en');
+    }
+  }, []);
+
+  // Close tooltip when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (tooltipRef.current && !tooltipRef.current.contains(event.target as Node)) {
@@ -318,12 +329,7 @@ export default function WikiClimber() {
               {t.stop}
             </button>
           ) : (
-            <button 
-              onClick={() => setLanguage(language === 'en' ? 'ko' : 'en')}
-              className="px-2 py-1 border rounded text-[10px] font-bold uppercase tracking-tighter hover:bg-gray-50 transition-colors"
-            >
-              {language === 'en' ? 'KO' : 'EN'}
-            </button>
+            <div className="w-8 sm:w-0" /> /* Spacer for alignment when no stop button */
           )}
         </div>
 
@@ -341,7 +347,6 @@ export default function WikiClimber() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </button>
-                {/* Tooltip */}
                 <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 w-48 md:w-64 p-2 md:p-3 bg-gray-900 text-white text-[10px] md:text-xs rounded shadow-xl transition-all z-50 font-normal normal-case leading-relaxed pointer-events-none ${showTooltip ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
                   {targetSummary || '...'}
                   <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
@@ -362,50 +367,69 @@ export default function WikiClimber() {
       </header>
 
       <div className="flex flex-1 overflow-hidden relative">
-        <main className="flex-1 overflow-auto p-4 sm:p-8 md:p-12 pt-6 max-w-4xl mx-auto border-x border-gray-50" ref={browserRef}>
-          {status === 'idle' && (
-            <div className="h-full flex flex-col items-center justify-center text-center">
-              <div className="w-16 h-16 md:w-24 md:h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4 md:mb-6">
-                <span className="text-3xl md:text-4xl">📚</span>
+        <main className="flex-1 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-auto p-4 sm:p-8 md:p-12 pt-6 max-w-4xl mx-auto border-x border-gray-50 w-full" ref={browserRef}>
+            {status === 'idle' && (
+              <div className="h-full flex flex-col items-center justify-center text-center">
+                <div className="w-16 h-16 md:w-24 md:h-24 bg-gray-100 rounded-full flex items-center justify-center mb-4 md:mb-6">
+                  <span className="text-3xl md:text-4xl">📚</span>
+                </div>
+                <h2 className="text-xl md:text-2xl font-serif font-bold mb-2">{t.welcome}</h2>
+                <p className="text-sm md:text-base text-gray-500 max-w-md mb-6 md:mb-8 px-4">{t.description}</p>
+                <div className="bg-gray-50 p-4 md:p-6 rounded-lg text-left text-xs md:text-sm text-gray-600 border border-dashed border-gray-300 mx-4 w-full max-w-sm">
+                  <p className="font-bold mb-2">{t.rulesTitle}</p>
+                  <ul className="list-disc ml-5 space-y-1 mb-6">
+                    {t.rules.map((rule, i) => <li key={i}>{rule}</li>)}
+                  </ul>
+                  <button 
+                    onClick={startCountdown}
+                    disabled={loading}
+                    className="w-full py-3 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700 transition disabled:opacity-50"
+                  >
+                    {loading ? '...' : t.start}
+                  </button>
+                </div>
               </div>
-              <h2 className="text-xl md:text-2xl font-serif font-bold mb-2">{t.welcome}</h2>
-              <p className="text-sm md:text-base text-gray-500 max-w-md mb-6 md:mb-8 px-4">{t.description}</p>
-              <div className="bg-gray-50 p-4 md:p-6 rounded-lg text-left text-xs md:text-sm text-gray-600 border border-dashed border-gray-300 mx-4 w-full max-w-sm">
-                <p className="font-bold mb-2">{t.rulesTitle}</p>
-                <ul className="list-disc ml-5 space-y-1 mb-6">
-                  {t.rules.map((rule, i) => <li key={i}>{rule}</li>)}
-                </ul>
-                <button 
-                  onClick={startCountdown}
-                  disabled={loading}
-                  className="w-full py-3 bg-blue-600 text-white font-bold rounded-md hover:bg-blue-700 transition disabled:opacity-50"
-                >
-                  {loading ? '...' : t.start}
-                </button>
-              </div>
-            </div>
-          )}
+            )}
 
-          {status === 'countdown' && (
-            <div className="h-full flex flex-col items-center justify-center text-center">
-              <div className="text-6xl md:text-8xl font-serif italic text-blue-600 animate-bounce">{countdown}</div>
-              <p className="text-xs md:text-sm text-gray-400 uppercase tracking-widest font-bold mt-4">{t.preparing}</p>
-            </div>
-          )}
-
-          {(status === 'playing' || status === 'congrats' || status === 'failed') && (
-            <div className="space-y-4 md:space-y-6">
-              <div className="border-b pb-3 md:pb-4 mb-4 md:mb-6">
-                <span className="text-[10px] md:text-xs font-bold text-blue-500 uppercase tracking-tight">{t.currentPage}</span>
-                <h2 className="text-xl md:text-3xl font-serif font-bold break-words" dangerouslySetInnerHTML={{ __html: currentWord }} />
+            {status === 'countdown' && (
+              <div className="h-full flex flex-col items-center justify-center text-center">
+                <div className="text-6xl md:text-8xl font-serif italic text-blue-600 animate-bounce">{countdown}</div>
+                <p className="text-xs md:text-sm text-gray-400 uppercase tracking-widest font-bold mt-4">{t.preparing}</p>
               </div>
-              <div 
-                className={`prose prose-sm md:prose-blue max-w-none wiki-content transition-opacity duration-300 ${loading ? 'opacity-30 pointer-events-none' : 'opacity-100 pointer-events-auto'}`} 
-                onClick={handleBrowserClick}
-                dangerouslySetInnerHTML={{ __html: htmlContent }}
-              />
-            </div>
-          )}
+            )}
+
+            {(status === 'playing' || status === 'congrats' || status === 'failed') && (
+              <div className="space-y-4 md:space-y-6">
+                <div className="border-b pb-3 md:pb-4 mb-4 md:mb-6">
+                  <span className="text-[10px] md:text-xs font-bold text-blue-500 uppercase tracking-tight">{t.currentPage}</span>
+                  <h2 className="text-xl md:text-3xl font-serif font-bold break-words" dangerouslySetInnerHTML={{ __html: currentWord }} />
+                </div>
+                <div 
+                  className={`prose prose-sm md:prose-blue max-w-none wiki-content transition-opacity duration-300 ${loading ? 'opacity-30 pointer-events-none' : 'opacity-100 pointer-events-auto'}`} 
+                  onClick={handleBrowserClick}
+                  dangerouslySetInnerHTML={{ __html: htmlContent }}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Footer with Language Selector */}
+          <footer className="bg-white border-t p-2 flex justify-center gap-4 text-[10px] font-bold text-gray-400">
+            <button 
+              onClick={() => setLanguage('ko')}
+              className={`hover:text-blue-600 transition-colors ${language === 'ko' ? 'text-blue-600' : ''}`}
+            >
+              한국어
+            </button>
+            <span className="text-gray-200">|</span>
+            <button 
+              onClick={() => setLanguage('en')}
+              className={`hover:text-blue-600 transition-colors ${language === 'en' ? 'text-blue-600' : ''}`}
+            >
+              ENGLISH
+            </button>
+          </footer>
         </main>
 
         {showRanking && (
