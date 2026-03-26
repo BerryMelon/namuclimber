@@ -89,31 +89,25 @@ const i18n = {
   }
 };
 
-// Separate Timer component
-const TimerDisplay = memo(({ status, onFinish }: { status: GameStatus, onFinish?: (finalTime: number) => void }) => {
+// Separate Timer component for performance
+const TimerDisplay = memo(({ status }: { status: GameStatus }) => {
   const [displayTime, setDisplayTime] = useState(0);
-  const timeRef = useRef(0);
 
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
     if (status === 'playing') {
       const startTime = Date.now();
       interval = setInterval(() => {
-        const now = Date.now() - startTime;
-        timeRef.current = now;
-        setDisplayTime(now);
+        setDisplayTime(Date.now() - startTime);
       }, 50);
-    } else if (status === 'congrats' || status === 'failed' || status === 'idle') {
-      if (onFinish && status !== 'idle') onFinish(timeRef.current);
-      if (status === 'idle') {
-        timeRef.current = 0;
-        setDisplayTime(0);
-      }
+    } else if (status === 'idle') {
+      setDisplayTime(0);
     }
+    // Note: We don't clear displayTime on 'congrats' so it stays visible
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [status, onFinish]);
+  }, [status]);
 
   const formatTime = (ms: number) => {
     const min = Math.floor(ms / 60000);
@@ -136,6 +130,7 @@ export default function WikiClimber() {
   const [currentWord, setCurrentWord] = useState<string>('');
   const [htmlContent, setHtmlContent] = useState<string>('');
   const [history, setHistory] = useState<string[]>([]);
+  const [gameStartTime, setGameStartTime] = useState<number>(0);
   const [finalTime, setFinalTime] = useState<number>(0);
   const [countdown, setCountdown] = useState<number>(3);
   const [showRanking, setShowRanking] = useState<boolean>(false);
@@ -250,6 +245,7 @@ export default function WikiClimber() {
       const id = setTimeout(() => setCountdown(countdown - 1), 1000);
       return () => clearTimeout(id);
     } else if (status === 'countdown' && countdown === 0) {
+      setGameStartTime(Date.now());
       setStatus('playing');
     }
   }, [status, countdown]);
@@ -267,6 +263,8 @@ export default function WikiClimber() {
       setHistory(prev => [...prev, page.title]);
       
       if (cleanCurrent === cleanTarget) {
+        const timeTaken = Date.now() - gameStartTime;
+        setFinalTime(timeTaken);
         setStatus('congrats');
       }
       setLoading(false);
@@ -348,6 +346,7 @@ export default function WikiClimber() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </button>
+                  {/* Tooltip */}
                   <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 w-48 md:w-64 p-2 md:p-3 bg-gray-900 text-white text-[10px] md:text-xs rounded shadow-xl transition-all z-50 font-normal normal-case leading-relaxed pointer-events-none ${showTooltip ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
                     {targetSummary || '...'}
                     <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
@@ -359,7 +358,7 @@ export default function WikiClimber() {
         </div>
 
         <div className="flex items-end sm:items-center gap-4 md:gap-6 shrink-0 h-full pt-2 sm:pt-0">
-          <TimerDisplay status={status} onFinish={setFinalTime} />
+          <TimerDisplay status={status} />
           <button onClick={() => setShowRanking(!showRanking)} className="text-gray-400 hover:text-blue-600 mb-0.5 sm:mb-0">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 md:h-6 md:w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -420,6 +419,7 @@ export default function WikiClimber() {
             )}
           </div>
 
+          {/* Footer with Language Selector */}
           <footer className="bg-white border-t p-2 flex justify-center gap-4 text-[10px] font-bold text-gray-400">
             <button 
               onClick={() => setLanguage('ko')}
