@@ -64,6 +64,8 @@ export default function WikiClimber() {
   const [showRanking, setShowRanking] = useState<boolean>(false);
   const [rankingPeriod, setRankingPeriod] = useState<'daily' | 'monthly' | 'overall'>('overall');
   const [rankings, setRankings] = useState<RankingEntry[]>([]);
+  const [playerName, setPlayerName] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
 
   const browserRef = useRef<HTMLDivElement>(null);
 
@@ -120,12 +122,12 @@ export default function WikiClimber() {
   const startCountdown = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Target Word (SIMPLE & POPULAR)
+      // 1. Fetch Target Word
       const target = await getRandomWikiPage('simple_popular');
-
-      // 2. Fetch Start Page (ANY)
+      
+      // 2. Fetch Start Page
       const start = await getRandomWikiPage('any');
-
+      
       if (start.title === target.title) {
         return startCountdown();
       }
@@ -357,6 +359,13 @@ export default function WikiClimber() {
                   Submit
                 </button>
               </div>
+
+              <button 
+                onClick={() => setStatus('idle')}
+                className="mt-8 text-xs text-gray-400 underline hover:text-gray-600 transition-colors"
+              >
+                Skip and return to menu
+              </button>
             </div>
           </div>
         )}
