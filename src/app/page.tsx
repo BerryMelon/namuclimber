@@ -44,6 +44,9 @@ const i18n = {
     yourPath: "Your Path",
     yourName: "Your Name",
     submit: "Submit",
+    share: "Share Result",
+    copySuccess: "Copied to clipboard!",
+    links: "links",
     skip: "Skip and return to menu",
     gameOver: "Game Over",
     keyboardError: "Keyboard input detected!",
@@ -79,6 +82,9 @@ const i18n = {
     yourPath: "이동 경로",
     yourName: "이름",
     submit: "등록",
+    share: "결과 공유",
+    copySuccess: "클립보드에 복사되었습니다!",
+    links: "단계",
     skip: "등록 없이 메뉴로 돌아가기",
     gameOver: "게임 오버",
     keyboardError: "키보드 입력이 감지되었습니다!",
@@ -193,19 +199,13 @@ export default function WikiClimber() {
     }
   };
 
-  /**
-   * DB Maintenance: Purge everything except Top 20 of each category
-   */
   const purgeOldRankings = async () => {
     if (!supabase) return;
     try {
-      // 1. Fetch IDs of Top 20 for each category
       const { data: overall } = await supabase.from('rankings').select('id').order('time_ms', { ascending: true }).limit(100);
-      
       const now = new Date();
       const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
       const { data: monthly } = await supabase.from('rankings').select('id').gte('created_at', startOfMonth).order('time_ms', { ascending: true }).limit(100);
-      
       const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
       const { data: daily } = await supabase.from('rankings').select('id').gte('created_at', startOfDay).order('time_ms', { ascending: true }).limit(100);
 
@@ -215,10 +215,8 @@ export default function WikiClimber() {
         ...(daily?.map(r => r.id) || [])
       ]);
 
-      // 2. Delete records not in the keep list
       if (keepIds.size > 0) {
         const idList = Array.from(keepIds);
-        // We use a custom filter string for "not in"
         await supabase.from('rankings').delete().filter('id', 'not.in', `(${idList.join(',')})`);
       }
     } catch (err) {
@@ -332,15 +330,24 @@ export default function WikiClimber() {
       ]);
       if (error) throw error;
       alert(t.scoreSuccess);
-      
-      // Perform DB cleanup
       await purgeOldRankings();
-      
       fetchRankings();
       setStatus('idle');
     } catch (err) {
       alert(t.scoreError);
     }
+  };
+
+  const handleShare = () => {
+    const timeStr = formatTime(finalTime);
+    const pathStr = history.join(' → ');
+    const shareText = `🏃‍♂️ ${t.welcome}\n🎯 ${t.target}: [${targetWord}]\n⏱ ${formatTime(finalTime)}\n🔗 Path: ${history.length} ${t.links}\n${pathStr}\n\nPlay here: https://berrymelon.github.io/wikiclimber/`;
+    
+    navigator.clipboard.writeText(shareText).then(() => {
+      alert(t.copySuccess);
+    }).catch(err => {
+      console.error('Failed to copy:', err);
+    });
   };
 
   const formatTime = (ms: number) => {
@@ -454,7 +461,6 @@ export default function WikiClimber() {
             )}
           </div>
 
-          {/* Footer with Language Selector */}
           <footer className="bg-white border-t p-2 flex justify-center gap-4 text-[10px] font-bold text-gray-400">
             <button 
               onClick={() => setLanguage('ko')}
@@ -534,16 +540,27 @@ export default function WikiClimber() {
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-2">
-                <input 
-                  type="text" 
-                  placeholder={t.yourName}
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  className="flex-1 border p-2 md:p-3 rounded-md outline-none focus:border-blue-500 text-sm"
-                />
-                <button onClick={submitScore} className="bg-blue-600 text-white font-bold px-6 py-2 md:py-3 rounded-md hover:bg-blue-700 text-sm">
-                  {t.submit}
+              <div className="flex flex-col gap-3">
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input 
+                    type="text" 
+                    placeholder={t.yourName}
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                    className="flex-1 border p-2 md:p-3 rounded-md outline-none focus:border-blue-500 text-sm"
+                  />
+                  <button onClick={submitScore} className="bg-blue-600 text-white font-bold px-6 py-2 md:py-3 rounded-md hover:bg-blue-700 text-sm">
+                    {t.submit}
+                  </button>
+                </div>
+                <button 
+                  onClick={handleShare}
+                  className="w-full py-2 md:py-3 bg-gray-100 text-gray-700 font-bold rounded-md hover:bg-gray-200 transition text-sm flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+                  </svg>
+                  {t.share}
                 </button>
               </div>
 
