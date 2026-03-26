@@ -291,6 +291,12 @@ export default function WikiClimber() {
                   <span className="text-xs font-mono bg-blue-50 text-blue-700 px-1 rounded">{formatTime(entry.time_ms)}</span>
                 </div>
                 <div className="text-[10px] text-gray-400 font-bold truncate mt-1">Target: {entry.target_word}</div>
+                <button 
+                  onClick={() => alert(`Path: ${entry.path.join(' → ')}`)}
+                  className="mt-2 text-[10px] text-gray-400 hover:text-blue-600 underline"
+                >
+                  VIEW PROGRESS
+                </button>
               </div>
             ))}
           </div>
