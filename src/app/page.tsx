@@ -62,24 +62,34 @@ export default function WikiClimber() {
   const [finalTime, setFinalTime] = useState<number>(0);
   const [countdown, setCountdown] = useState<number>(3);
   const [showRanking, setShowRanking] = useState<boolean>(false);
+  const [rankingPeriod, setRankingPeriod] = useState<'daily' | 'monthly' | 'overall'>('overall');
   const [rankings, setRankings] = useState<RankingEntry[]>([]);
-  const [playerName, setPlayerName] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
 
   const browserRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     fetchRankings();
-  }, []);
+  }, [rankingPeriod]);
 
   const fetchRankings = async () => {
     if (!supabase) return;
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('rankings')
         .select('*')
         .order('time_ms', { ascending: true })
         .limit(20);
+
+      const now = new Date();
+      if (rankingPeriod === 'daily') {
+        const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+        query = query.gte('created_at', startOfDay);
+      } else if (rankingPeriod === 'monthly') {
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+        query = query.gte('created_at', startOfMonth);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       setRankings(data || []);
     } catch (err) {
@@ -280,25 +290,44 @@ export default function WikiClimber() {
 
         <aside className={`w-80 bg-gray-50 border-l fixed right-0 top-[73px] bottom-0 transition-transform duration-300 z-20 ${showRanking ? 'translate-x-0' : 'translate-x-full'}`}>
           <div className="p-4 border-b flex justify-between items-center bg-white">
-            <h2 className="font-bold">Rankings</h2>
-            <button onClick={() => setShowRanking(false)} className="text-2xl">&times;</button>
+            <h2 className="font-bold uppercase tracking-tight text-xs text-gray-500">Rankings</h2>
+            <button onClick={() => setShowRanking(false)} className="text-2xl text-gray-300 hover:text-gray-600">&times;</button>
           </div>
-          <div className="overflow-auto h-full p-4 space-y-3 pb-24">
-            {rankings.map((entry, idx) => (
-              <div key={entry.id} className="bg-white border rounded p-3 shadow-sm">
-                <div className="flex justify-between items-center">
-                  <span className="font-bold text-blue-600">#{idx + 1} {entry.player_name}</span>
-                  <span className="text-xs font-mono bg-blue-50 text-blue-700 px-1 rounded">{formatTime(entry.time_ms)}</span>
-                </div>
-                <div className="text-[10px] text-gray-400 font-bold truncate mt-1">Target: {entry.target_word}</div>
-                <button 
-                  onClick={() => alert(`Path: ${entry.path.join(' → ')}`)}
-                  className="mt-2 text-[10px] text-gray-400 hover:text-blue-600 underline"
-                >
-                  VIEW PROGRESS
-                </button>
-              </div>
+          
+          <div className="flex border-b bg-white">
+            {(['daily', 'monthly', 'overall'] as const).map((p) => (
+              <button
+                key={p}
+                onClick={() => setRankingPeriod(p)}
+                className={`flex-1 py-3 text-[10px] font-bold uppercase tracking-wider transition-colors ${
+                  rankingPeriod === p ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50/30' : 'text-gray-400 hover:bg-gray-50'
+                }`}
+              >
+                {p}
+              </button>
             ))}
+          </div>
+
+          <div className="overflow-auto h-full p-4 space-y-3 pb-32">
+            {rankings.length === 0 ? (
+              <div className="text-center py-10 text-gray-400 text-xs italic">No rankings found for this period.</div>
+            ) : (
+              rankings.map((entry, idx) => (
+                <div key={entry.id} className="bg-white border rounded p-3 shadow-sm group">
+                  <div className="flex justify-between items-center">
+                    <span className="font-bold text-blue-600">#{idx + 1} {entry.player_name}</span>
+                    <span className="text-xs font-mono bg-blue-50 text-blue-700 px-1 rounded">{formatTime(entry.time_ms)}</span>
+                  </div>
+                  <div className="text-[10px] text-gray-400 font-bold truncate mt-1">Target: {entry.target_word}</div>
+                  <button 
+                    onClick={() => alert(`Path: ${entry.path.join(' → ')}`)}
+                    className="mt-2 text-[10px] text-gray-400 group-hover:text-blue-600 underline transition-colors"
+                  >
+                    VIEW PROGRESS
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </aside>
 
