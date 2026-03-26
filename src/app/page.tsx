@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, memo } from 'react';
-import { fetchWikiPage, getRandomWikiPage } from '@/utils/WikiProxy';
+import { fetchWikiPage, getRandomWikiPage, fetchWikiSummary } from '@/utils/WikiProxy';
 import { supabase } from '@/utils/supabase';
 
 type GameStatus = 'idle' | 'countdown' | 'playing' | 'congrats' | 'failed';
@@ -56,6 +56,7 @@ TimerDisplay.displayName = 'TimerDisplay';
 export default function WikiClimber() {
   const [status, setStatus] = useState<GameStatus>('idle');
   const [targetWord, setTargetWord] = useState<string>('');
+  const [targetSummary, setTargetSummary] = useState<string>('');
   const [currentWord, setCurrentWord] = useState<string>('');
   const [htmlContent, setHtmlContent] = useState<string>('');
   const [history, setHistory] = useState<string[]>([]);
@@ -125,7 +126,11 @@ export default function WikiClimber() {
       // 1. Fetch Target Word
       const target = await getRandomWikiPage('simple_popular');
       
-      // 2. Fetch Start Page
+      // 2. Fetch Summary for Tooltip
+      const summary = await fetchWikiSummary(target.title);
+      setTargetSummary(summary);
+
+      // 3. Fetch Start Page
       const start = await getRandomWikiPage('any');
       
       if (start.title === target.title) {
@@ -234,9 +239,24 @@ export default function WikiClimber() {
           </button>
         </div>
 
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center relative group">
           <span className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Target</span>
-          <span className="text-lg font-bold" dangerouslySetInnerHTML={{ __html: status === 'idle' ? '???' : targetWord }} />
+          <div className="flex items-center gap-1">
+            <span className="text-lg font-bold" dangerouslySetInnerHTML={{ __html: status === 'idle' ? '???' : targetWord }} />
+            {status !== 'idle' && (
+              <div className="relative inline-block group/tooltip">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-gray-300 cursor-help hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                {/* Tooltip */}
+                <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 w-64 p-3 bg-gray-900 text-white text-xs rounded shadow-xl opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-50 font-normal normal-case leading-relaxed pointer-events-none">
+                  {targetSummary || 'Loading summary...'}
+                  {/* Arrow */}
+                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-6">

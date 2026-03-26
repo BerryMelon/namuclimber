@@ -82,6 +82,32 @@ export const fetchWikiPage = async (title: string): Promise<WikiPage> => {
 };
 
 /**
+ * Fetches the first sentence/intro of a page for the tooltip
+ */
+export const fetchWikiSummary = async (title: string): Promise<string> => {
+  const params = new URLSearchParams({
+    action: 'query',
+    prop: 'extracts',
+    exintro: 'true',
+    explaintext: 'true',
+    exsentences: '1',
+    titles: title,
+    format: 'json',
+    origin: '*'
+  });
+
+  try {
+    const response = await fetch(`${WIKI_API_URL}?${params.toString()}`);
+    const data = await response.json();
+    const pages = data.query.pages;
+    const pageId = Object.keys(pages)[0];
+    return pages[pageId].extract || 'No summary available.';
+  } catch (e) {
+    return 'Failed to load summary.';
+  }
+};
+
+/**
  * Checks if a title is "Simple": 
  * 1. No whitespace (Single word)
  * 2. No numbers or special symbols (Koreans/Alphabets only)
