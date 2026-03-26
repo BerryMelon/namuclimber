@@ -110,15 +110,14 @@ export default function WikiClimber() {
   const startCountdown = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Target Word (REAL Network Call)
+      // 1. Fetch Target Word
       const target = await getRandomWikiPage();
       
-      // 2. Fetch Start Page (REAL Network Call)
+      // 2. Fetch Start Page
       const start = await getRandomWikiPage();
       
-      // Safety check: ensure they aren't the same
       if (start.title === target.title) {
-        return startCountdown(); // Retry once
+        return startCountdown();
       }
 
       setTargetWord(target.title);
@@ -240,7 +239,7 @@ export default function WikiClimber() {
 
       <div className="flex flex-1 overflow-hidden relative">
         <main className="flex-1 overflow-auto p-12 pt-6 max-w-4xl mx-auto border-x border-gray-50" ref={browserRef}>
-          {status === 'idle' ? (
+          {status === 'idle' && (
             <div className="h-full flex flex-col items-center justify-center text-center">
               <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
                 <span className="text-4xl">📚</span>
@@ -255,14 +254,21 @@ export default function WikiClimber() {
                 </ul>
               </div>
             </div>
-          ) : (
+          )}
+
+          {status === 'countdown' && (
+            <div className="h-full flex flex-col items-center justify-center text-center">
+              <div className="text-8xl font-serif italic text-blue-600 animate-bounce">{countdown}</div>
+              <p className="text-gray-400 uppercase tracking-widest font-bold mt-4">Preparing Expedition...</p>
+            </div>
+          )}
+
+          {(status === 'playing' || status === 'congrats' || status === 'failed') && (
             <div className="space-y-6">
-              {status === 'playing' && (
-                <div className="border-b pb-4 mb-6">
-                  <span className="text-xs font-bold text-blue-500 uppercase tracking-tight">Current Page</span>
-                  <h2 className="text-3xl font-serif font-bold" dangerouslySetInnerHTML={{ __html: currentWord }} />
-                </div>
-              )}
+              <div className="border-b pb-4 mb-6">
+                <span className="text-xs font-bold text-blue-500 uppercase tracking-tight">Current Page</span>
+                <h2 className="text-3xl font-serif font-bold" dangerouslySetInnerHTML={{ __html: currentWord }} />
+              </div>
               <div 
                 className={`prose prose-blue max-w-none wiki-content transition-opacity duration-300 ${loading ? 'opacity-30 pointer-events-none' : 'opacity-100 pointer-events-auto'}`} 
                 onClick={handleBrowserClick}
