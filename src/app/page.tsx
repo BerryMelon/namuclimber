@@ -103,7 +103,6 @@ const TimerDisplay = memo(({ status }: { status: GameStatus }) => {
     } else if (status === 'idle') {
       setDisplayTime(0);
     }
-    // Note: We don't clear displayTime on 'congrats' so it stays visible
     return () => {
       if (interval) clearInterval(interval);
     };
@@ -175,7 +174,7 @@ export default function WikiClimber() {
         .from('rankings')
         .select('*')
         .order('time_ms', { ascending: true })
-        .limit(20);
+        .limit(100);
 
       const now = new Date();
       if (rankingPeriod === 'daily') {
@@ -191,6 +190,39 @@ export default function WikiClimber() {
       setRankings(data || []);
     } catch (err) {
       console.error('Failed to fetch rankings:', err);
+    }
+  };
+
+  /**
+   * DB Maintenance: Purge everything except Top 20 of each category
+   */
+  const purgeOldRankings = async () => {
+    if (!supabase) return;
+    try {
+      // 1. Fetch IDs of Top 20 for each category
+      const { data: overall } = await supabase.from('rankings').select('id').order('time_ms', { ascending: true }).limit(100);
+      
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const { data: monthly } = await supabase.from('rankings').select('id').gte('created_at', startOfMonth).order('time_ms', { ascending: true }).limit(100);
+      
+      const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const { data: daily } = await supabase.from('rankings').select('id').gte('created_at', startOfDay).order('time_ms', { ascending: true }).limit(100);
+
+      const keepIds = new Set([
+        ...(overall?.map(r => r.id) || []),
+        ...(monthly?.map(r => r.id) || []),
+        ...(daily?.map(r => r.id) || [])
+      ]);
+
+      // 2. Delete records not in the keep list
+      if (keepIds.size > 0) {
+        const idList = Array.from(keepIds);
+        // We use a custom filter string for "not in"
+        await supabase.from('rankings').delete().filter('id', 'not.in', `(${idList.join(',')})`);
+      }
+    } catch (err) {
+      console.warn('Purge omitted (likely policy missing).');
     }
   };
 
@@ -300,6 +332,10 @@ export default function WikiClimber() {
       ]);
       if (error) throw error;
       alert(t.scoreSuccess);
+      
+      // Perform DB cleanup
+      await purgeOldRankings();
+      
       fetchRankings();
       setStatus('idle');
     } catch (err) {
@@ -346,7 +382,6 @@ export default function WikiClimber() {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                   </button>
-                  {/* Tooltip */}
                   <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 w-48 md:w-64 p-2 md:p-3 bg-gray-900 text-white text-[10px] md:text-xs rounded shadow-xl transition-all z-50 font-normal normal-case leading-relaxed pointer-events-none ${showTooltip ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
                     {targetSummary || '...'}
                     <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
