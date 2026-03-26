@@ -110,12 +110,12 @@ export default function WikiClimber() {
   const startCountdown = async () => {
     setLoading(true);
     try {
-      // 1. Fetch Target Word
-      const target = await getRandomWikiPage();
-      
-      // 2. Fetch Start Page
-      const start = await getRandomWikiPage();
-      
+      // 1. Fetch Target Word (SIMPLE & POPULAR)
+      const target = await getRandomWikiPage('simple_popular');
+
+      // 2. Fetch Start Page (ANY)
+      const start = await getRandomWikiPage('any');
+
       if (start.title === target.title) {
         return startCountdown();
       }

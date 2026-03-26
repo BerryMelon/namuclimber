@@ -6,8 +6,6 @@ export interface WikiPage {
 const WIKI_API_URL = 'https://ko.wikipedia.org/w/api.php';
 
 export const fetchWikiPage = async (title: string): Promise<WikiPage> => {
-  console.log(`[WikiProxy] Fetching: ${title}`);
-  
   const params = new URLSearchParams({
     action: 'parse',
     page: title,
@@ -26,7 +24,6 @@ export const fetchWikiPage = async (title: string): Promise<WikiPage> => {
 
     const rawHtml = data.parse.text['*'];
     
-    // Clean up title (remove HTML tags like <span class="mw-page-title-main">)
     const titleParser = new DOMParser();
     const titleDoc = titleParser.parseFromString(data.parse.displaytitle, 'text/html');
     const displayTitle = titleDoc.body.textContent || data.parse.displaytitle;
@@ -35,17 +32,12 @@ export const fetchWikiPage = async (title: string): Promise<WikiPage> => {
     const doc = parser.parseFromString(rawHtml, 'text/html');
     const container = doc.body;
 
-    // Clean up
     const toRemove = container.querySelectorAll('.mw-editsection, .reference, .reflist, .navbox, .infobox, .sidenote, .metadata, .mw-empty-elt');
     toRemove.forEach(el => el.remove());
 
-    // Rewrite internal Wikipedia links
     const links = container.querySelectorAll('a');
     links.forEach(link => {
       const href = link.getAttribute('href');
-      
-      // Robust check for Wikipedia internal links
-      // Matches /wiki/Page, ./Page, or full URL
       if (href && (href.includes('/wiki/') || href.startsWith('./')) && !href.includes(':')) {
         let pageName = '';
         if (href.startsWith('./')) {
@@ -69,7 +61,6 @@ export const fetchWikiPage = async (title: string): Promise<WikiPage> => {
       }
     });
 
-    // Fix images
     const images = container.querySelectorAll('img');
     images.forEach(img => {
       let src = img.getAttribute('src');
@@ -90,21 +81,86 @@ export const fetchWikiPage = async (title: string): Promise<WikiPage> => {
   }
 };
 
-export const getRandomWikiPage = async (): Promise<WikiPage> => {
+/**
+ * Checks if a title is "Simple": 
+ * 1. No whitespace (Single word)
+ * 2. No numbers or special symbols (Koreans/Alphabets only)
+ */
+const isSimpleTitle = (title: string): boolean => {
+  // 1. No whitespace
+  if (/\s/.test(title)) return false;
+  
+  // 2. No numbers or symbols like ()[],. etc.
+  // We allow only Korean characters (가-힣) and English Alphabets (a-zA-Z)
+  const regex = /^[가-힣a-zA-Z]+$/;
+  return regex.test(title);
+};
+
+/**
+ * Fetches page views for the last 30 days
+ */
+const getPageViews = async (title: string): Promise<number> => {
   const params = new URLSearchParams({
     action: 'query',
-    list: 'random',
-    rnnamespace: '0',
-    rnlimit: '1',
+    prop: 'pageviews',
+    titles: title,
     format: 'json',
     origin: '*'
   });
 
-  const response = await fetch(`${WIKI_API_URL}?${params.toString()}`);
-  const data = await response.json();
-  const randomTitle = data.query.random[0].title;
-  
-  return fetchWikiPage(randomTitle);
+  try {
+    const response = await fetch(`${WIKI_API_URL}?${params.toString()}`);
+    const data = await response.json();
+    const pages = data.query.pages;
+    const pageId = Object.keys(pages)[0];
+    const viewsObj = pages[pageId].pageviews || {};
+    
+    // Sum views in the returned object
+    const totalViews = Object.values(viewsObj).reduce((sum: number, val: any) => sum + (val || 0), 0);
+    return totalViews as number;
+  } catch (e) {
+    return 0;
+  }
 };
 
+export const getRandomWikiPage = async (criteria: 'any' | 'simple_popular' = 'any'): Promise<WikiPage> => {
+  // To optimize, we fetch multiple random titles at once
+  const fetchRandomTitles = async (limit: number = 10) => {
+    const params = new URLSearchParams({
+      action: 'query',
+      list: 'random',
+      rnnamespace: '0',
+      rnlimit: limit.toString(),
+      format: 'json',
+      origin: '*'
+    });
+    const response = await fetch(`${WIKI_API_URL}?${params.toString()}`);
+    const data = await response.json();
+    return data.query.random.map((p: any) => p.title);
+  };
 
+  if (criteria === 'any') {
+    const titles = await fetchRandomTitles(1);
+    return fetchWikiPage(titles[0]);
+  }
+
+  // Filter loop for simple_popular
+  let attempts = 0;
+  while (attempts < 50) { // Limit attempts to avoid infinite loops
+    attempts++;
+    const titles = await fetchRandomTitles(10);
+    
+    for (const title of titles) {
+      if (isSimpleTitle(title)) {
+        const views = await getPageViews(title);
+        if (views >= 10) {
+          console.log(`[WikiProxy] Selected target: ${title} (${views} views)`);
+          return fetchWikiPage(title);
+        }
+      }
+    }
+  }
+
+  // Absolute fallback if we can't find anything in 50 attempts
+  return fetchWikiPage('대한민국');
+};
