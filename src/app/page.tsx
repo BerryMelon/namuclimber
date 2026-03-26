@@ -18,7 +18,7 @@ interface RankingEntry {
 
 const i18n = {
   en: {
-    welcome: "WikiRun",
+    welcome: "WikiClimber",
     description: "Navigate through Wikipedia links to reach the target page. No keyboard allowed!",
     rulesTitle: "Rules:",
     rules: [
@@ -334,26 +334,27 @@ export default function WikiClimber() {
         </div>
 
         <div className="flex flex-col items-start sm:items-center min-w-0 flex-1 px-2 relative h-full">
-          <span className="text-[8px] md:text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none mb-1">{t.target}</span>
-          <div className="flex items-center justify-start sm:justify-center max-w-full relative">
-            <span className="text-lg md:text-xl font-bold truncate leading-none" dangerouslySetInnerHTML={{ __html: status === 'idle' ? '???' : targetWord }} />
-            {status !== 'idle' && (
-              <div className="absolute left-full ml-1" ref={tooltipRef}>
-                <button 
-                  onClick={() => setShowTooltip(!showTooltip)}
-                  className="p-1 focus:outline-none flex items-center"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-colors ${showTooltip ? 'text-blue-600' : 'text-gray-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </button>
-                {/* Tooltip */}
-                <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 w-48 md:w-64 p-2 md:p-3 bg-gray-900 text-white text-[10px] md:text-xs rounded shadow-xl transition-all z-50 font-normal normal-case leading-relaxed pointer-events-none ${showTooltip ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
-                  {targetSummary || '...'}
-                  <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+          <div className={`flex flex-col items-start sm:items-center transition-all duration-500 transform ${status === 'playing' || status === 'congrats' || status === 'failed' ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-4'}`}>
+            <span className="text-[8px] md:text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-none mb-1">{t.target}</span>
+            <div className="flex items-center justify-start sm:justify-center max-w-full relative">
+              <span className="text-lg md:text-xl font-bold truncate leading-none" dangerouslySetInnerHTML={{ __html: targetWord }} />
+              {targetWord && (
+                <div className="absolute left-full ml-1" ref={tooltipRef}>
+                  <button 
+                    onClick={() => setShowTooltip(!showTooltip)}
+                    className="p-1 focus:outline-none flex items-center"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-colors ${showTooltip ? 'text-blue-600' : 'text-gray-300'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </button>
+                  <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 w-48 md:w-64 p-2 md:p-3 bg-gray-900 text-white text-[10px] md:text-xs rounded shadow-xl transition-all z-50 font-normal normal-case leading-relaxed pointer-events-none ${showTooltip ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
+                    {targetSummary || '...'}
+                    <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
@@ -394,9 +395,13 @@ export default function WikiClimber() {
             )}
 
             {status === 'countdown' && (
-              <div className="h-full flex flex-col items-center justify-center text-center">
-                <div className="text-6xl md:text-8xl font-serif italic text-blue-600 animate-bounce">{countdown}</div>
-                <p className="text-xs md:text-sm text-gray-400 uppercase tracking-widest font-bold mt-4">{t.preparing}</p>
+              <div className="h-full flex flex-col items-center justify-center text-center px-8">
+                <div className="mb-8 transition-all duration-500">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-widest block mb-2">{t.target}</span>
+                  <h3 className="text-3xl md:text-5xl font-bold text-blue-600" dangerouslySetInnerHTML={{ __html: targetWord }} />
+                </div>
+                <div className="text-8xl md:text-9xl font-serif italic text-gray-900 animate-pulse w-full">{countdown}</div>
+                <p className="text-xs md:text-sm text-gray-400 uppercase tracking-widest font-bold mt-8">{t.preparing}</p>
               </div>
             )}
 
@@ -415,7 +420,6 @@ export default function WikiClimber() {
             )}
           </div>
 
-          {/* Footer with Language Selector */}
           <footer className="bg-white border-t p-2 flex justify-center gap-4 text-[10px] font-bold text-gray-400">
             <button 
               onClick={() => setLanguage('ko')}
