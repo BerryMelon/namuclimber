@@ -153,7 +153,7 @@ export const getRandomWikiPage = async (criteria: 'any' | 'simple_popular' = 'an
     for (const title of titles) {
       if (isSimpleTitle(title)) {
         const views = await getPageViews(title);
-        if (views >= 10) {
+        if (views >= 300) {
           console.log(`[WikiProxy] Selected target: ${title} (${views} views)`);
           return fetchWikiPage(title);
         }
